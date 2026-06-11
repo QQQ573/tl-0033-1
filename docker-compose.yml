@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: golden-monkey-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root123456
+      MYSQL_DATABASE: golden_monkey
+      MYSQL_USER: monkey_user
+      MYSQL_PASSWORD: monkey_pass123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./backend/src/main/resources/data.sql:/docker-entrypoint-initdb.d/02-data.sql
+    networks:
+      - golden-monkey-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: golden-monkey-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/golden_monkey?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: monkey_user
+      SPRING_DATASOURCE_PASSWORD: monkey_pass123
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - golden-monkey-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: golden-monkey-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - golden-monkey-network
+
+volumes:
+  mysql_data:
+
+networks:
+  golden-monkey-network:
+    driver: bridge
