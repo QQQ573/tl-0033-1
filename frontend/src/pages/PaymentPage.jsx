@@ -1,28 +1,49 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { orderApi, paymentApi } from '../api/index.js'
 
 export default function PaymentPage() {
   const { orderNo } = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const [order, setOrder] = useState(null)
+  const [orders, setOrders] = useState([])
   const [payMethod, setPayMethod] = useState('wechat')
   const [paying, setPaying] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    loadOrder()
-  }, [orderNo])
+  function parseOrderNos() {
+    const raw = searchParams.get('orderNos')
+    if (raw) {
+      try {
+        const decoded = decodeURIComponent(raw)
+        const list = decoded.split(',').map((s) => s.trim()).filter(Boolean)
+        if (list.length > 0) return list
+      } catch (e) {
+        console.warn('解析 orderNos 参数失败', e)
+      }
+    }
+    return [orderNo]
+  }
 
-  async function loadOrder() {
+  useEffect(() => {
+    loadOrders()
+  }, [orderNo, searchParams.toString()])
+
+  async function loadOrders() {
     try {
       setLoading(true)
-      const res = await orderApi.getByOrderNo(orderNo)
-      if (res.code === 200) {
-        setOrder(res.data)
-        if (res.data.status === 'COMPLETED') {
-          navigate(`/success/${orderNo}`)
-        }
+      const nos = parseOrderNos()
+      const results = await Promise.all(
+        nos.map((no) =>
+          orderApi.getByOrderNo(no).then((res) => (res.code === 200 ? res.data : null))
+        )
+      )
+      const valid = results.filter(Boolean)
+      setOrders(valid)
+
+      if (valid.length > 0 && valid.every((o) => o.status === 'COMPLETED')) {
+        const all = valid.map((o) => o.orderNo).join(',')
+        navigate(`/success/${valid[0].orderNo}?orderNos=${encodeURIComponent(all)}`)
       }
     } catch (e) {
       console.error(e)
@@ -32,14 +53,29 @@ export default function PaymentPage() {
   }
 
   async function handlePay() {
-    if (!order) return
+    if (orders.length === 0) return
     try {
       setPaying(true)
-      const res = await paymentApi.simulate(orderNo)
-      if (res.code === 200) {
-        navigate(`/success/${orderNo}`)
+      const succeed = []
+      for (const o of orders) {
+        if (o.status === 'COMPLETED') {
+          succeed.push(o)
+          continue
+        }
+        const res = await paymentApi.simulate(o.orderNo)
+        if (res.code === 200) {
+          succeed.push(o)
+        } else {
+          alert(`支付 [${o.monkeyName}] 失败：${res.message}`)
+          break
+        }
+      }
+
+      if (succeed.length === orders.length) {
+        const all = succeed.map((o) => o.orderNo).join(',')
+        navigate(`/success/${succeed[0].orderNo}?orderNos=${encodeURIComponent(all)}`)
       } else {
-        alert('支付失败：' + res.message)
+        loadOrders()
       }
     } catch (e) {
       alert('支付出错：' + (e.message || '请稍后重试'))
@@ -47,6 +83,8 @@ export default function PaymentPage() {
       setPaying(false)
     }
   }
+
+  const totalAmount = orders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0)
 
   if (loading) {
     return (
@@ -57,7 +95,7 @@ export default function PaymentPage() {
     )
   }
 
-  if (!order) {
+  if (orders.length === 0) {
     return <div className="loading">订单不存在</div>
   }
 
@@ -69,26 +107,31 @@ export default function PaymentPage() {
 
       <div className="payment-card">
         <h2 style={{ color: '#2d6a4f', marginBottom: 8 }}>确认支付</h2>
-        <p style={{ color: '#888', fontSize: 14 }}>订单号：{order.orderNo}</p>
+        <p style={{ color: '#888', fontSize: 14 }}>
+          共 {orders.length} 个认养订单
+          {orders.length === 1 && `：订单号 ${orders[0].orderNo}`}
+        </p>
 
-        <div className="payment-amount">¥{Number(order.totalAmount).toFixed(2)}</div>
+        <div className="payment-amount">¥{totalAmount.toFixed(2)}</div>
 
-        <div className="payment-info">
-          <div className="payment-info-row">
-            <span style={{ color: '#888' }}>认养项目</span>
-            <span style={{ fontWeight: 500 }}>{order.monkeyName}</span>
+        {orders.map((o) => (
+          <div key={o.orderNo} className="payment-info" style={{ marginBottom: 12 }}>
+            <div className="payment-info-row">
+              <span style={{ color: '#888' }}>认养项目</span>
+              <span style={{ fontWeight: 500 }}>{o.monkeyName}</span>
+            </div>
+            <div className="payment-info-row">
+              <span style={{ color: '#888' }}>认养档位</span>
+              <span style={{ fontWeight: 500 }}>{o.tierName}</span>
+            </div>
+            <div className="payment-info-row">
+              <span style={{ color: '#888' }}>金额</span>
+              <span style={{ fontWeight: 500, color: '#e85d04' }}>
+                ¥{Number(o.totalAmount).toFixed(2)}
+              </span>
+            </div>
           </div>
-          <div className="payment-info-row">
-            <span style={{ color: '#888' }}>认养档位</span>
-            <span style={{ fontWeight: 500 }}>{order.tierName}</span>
-          </div>
-          <div className="payment-info-row">
-            <span style={{ color: '#888' }}>创建时间</span>
-            <span style={{ color: '#666', fontSize: 13 }}>
-              {new Date(order.createdAt).toLocaleString('zh-CN')}
-            </span>
-          </div>
-        </div>
+        ))}
 
         <h3
           style={{
@@ -96,6 +139,7 @@ export default function PaymentPage() {
             fontWeight: 500,
             color: '#333',
             marginBottom: 16,
+            marginTop: 8,
             textAlign: 'left'
           }}
         >
@@ -124,7 +168,8 @@ export default function PaymentPage() {
           onClick={handlePay}
           disabled={paying}
         >
-          {paying ? '支付中...' : `确认支付 ¥${Number(order.totalAmount).toFixed(2)}`}
+          {paying ? `支付中... (${orders.filter((o) => o.status === 'COMPLETED').length}/${orders.length})`
+            : `确认支付 ¥${totalAmount.toFixed(2)}`}
         </button>
 
         <p

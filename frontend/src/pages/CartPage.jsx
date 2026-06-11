@@ -59,8 +59,9 @@ export default function CartPage() {
 
       if (orderResults.length > 0) {
         const firstOrder = orderResults[0]
+        const allOrderNos = orderResults.map((o) => o.orderNo).join(',')
         clearCart()
-        navigate(`/payment/${firstOrder.orderNo}`)
+        navigate(`/payment/${firstOrder.orderNo}?orderNos=${encodeURIComponent(allOrderNos)}`)
       }
     } catch (e) {
       alert('提交失败：' + (e.message || '请稍后重试'))
