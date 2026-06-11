@@ -76,3 +76,20 @@ CREATE TABLE IF NOT EXISTS certificate (
     pdf_content LONGBLOB,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS growth_diary (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    monkey_id BIGINT NOT NULL,
+    record_date DATE NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    content TEXT,
+    weight_kg DECIMAL(5,2),
+    mood_tag VARCHAR(50),
+    image_url VARCHAR(500),
+    keeper_name VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_monkey_id (monkey_id),
+    INDEX idx_record_date (record_date),
+    UNIQUE KEY uk_monkey_date (monkey_id, record_date)
+);

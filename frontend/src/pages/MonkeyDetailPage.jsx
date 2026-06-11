@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useParams, useNavigate } from 'react-router-dom'
-import { monkeyApi, tierApi } from '../api/index.js'
+import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { monkeyApi, tierApi, diaryApi } from '../api/index.js'
 import { useCart } from '../context/CartContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
+import GrowthTimeline from '../components/GrowthTimeline.jsx'
 
 export default function MonkeyDetailPage() {
   const { id } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const { addToCart } = useCart()
+  const { openLogin } = useAuth()
 
   const [monkey, setMonkey] = useState(null)
   const [tiers, setTiers] = useState([])
@@ -14,9 +18,28 @@ export default function MonkeyDetailPage() {
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState('')
 
+  const [activeTab, setActiveTab] = useState('story')
+  const [diaryData, setDiaryData] = useState(null)
+  const [diaryLoading, setDiaryLoading] = useState(false)
+
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab')
+    if (tabFromUrl === 'diary') {
+      setActiveTab('diary')
+    } else {
+      setActiveTab('story')
+    }
+  }, [searchParams.toString()])
+
   useEffect(() => {
     loadData()
   }, [id])
+
+  useEffect(() => {
+    if (activeTab === 'diary' && monkey) {
+      loadDiaries()
+    }
+  }, [activeTab, monkey?.id])
 
   async function loadData() {
     try {
@@ -37,6 +60,30 @@ export default function MonkeyDetailPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  async function loadDiaries() {
+    try {
+      setDiaryLoading(true)
+      const res = await diaryApi.getByMonkeyId(id)
+      if (res.code === 200) {
+        setDiaryData(res.data)
+      }
+    } catch (e) {
+      console.error('Load diaries error:', e)
+    } finally {
+      setDiaryLoading(false)
+    }
+  }
+
+  function switchTab(tab) {
+    setActiveTab(tab)
+    if (tab === 'diary') {
+      searchParams.set('tab', 'diary')
+    } else {
+      searchParams.delete('tab')
+    }
+    setSearchParams(searchParams, { replace: true })
   }
 
   function handleAddToCart() {
@@ -144,65 +191,110 @@ export default function MonkeyDetailPage() {
         </div>
       </div>
 
-      <div className="detail-section">
-        <h3 className="detail-section-title">📖 我的故事</h3>
-        <p className="detail-story">{monkey.story}</p>
-      </div>
-
-      <div className="detail-section">
-        <h3 className="detail-section-title">💚 选择认养档位</h3>
-        <div className="tier-grid">
-          {tiers.map((tier) => (
-            <div
-              key={tier.id}
-              className={`tier-card ${selectedTier?.id === tier.id ? 'selected' : ''}`}
-              onClick={() => !monkey.isAdopted && setSelectedTier(tier)}
-              style={{ opacity: monkey.isAdopted ? 0.5 : 1 }}
-            >
-              <div className="tier-name">{tier.name}</div>
-              <div className="tier-price">
-                ¥{Number(tier.price).toFixed(0)}
-                <small> / {tier.durationMonths}个月</small>
-              </div>
-              <div className="tier-desc">{tier.description}</div>
-              <div className="tier-benefits">{tier.benefits}</div>
-            </div>
-          ))}
+      <div className="detail-tabs">
+        <div
+          className={`tab-item ${activeTab === 'story' ? 'active' : ''}`}
+          onClick={() => switchTab('story')}
+        >
+          📖 我的故事
         </div>
-
-        {!monkey.isAdopted && (
-          <div
-            style={{
-              marginTop: 24,
-              display: 'flex',
-              gap: 16,
-              justifyContent: 'center'
-            }}
-          >
-            <button className="btn btn-outline btn-large" onClick={handleAddToCart}>
-              🛒 加入认养篮
-            </button>
-            <button className="btn btn-primary btn-large" onClick={handleBuyNow}>
-              ❤ 立即认养
-            </button>
-          </div>
-        )}
-
-        {monkey.isAdopted && (
-          <div
-            style={{
-              marginTop: 24,
-              textAlign: 'center',
-              padding: 24,
-              background: '#fff5f5',
-              borderRadius: 12,
-              color: '#ee5a6f'
-            }}
-          >
-            这只金丝猴已经被认养了，请选择其他可爱的小伙伴吧～
-          </div>
-        )}
+        <div
+          className={`tab-item ${activeTab === 'diary' ? 'active' : ''}`}
+          onClick={() => switchTab('diary')}
+        >
+          📝 成长足迹
+          {diaryData?.total > 0 && (
+            <span className="tab-badge">{diaryData.total}</span>
+          )}
+        </div>
       </div>
+
+      {activeTab === 'story' && (
+        <>
+          <div className="detail-section">
+            <h3 className="detail-section-title">关于我</h3>
+            <p className="detail-story">{monkey.story}</p>
+          </div>
+
+          <div className="detail-section">
+            <h3 className="detail-section-title">💚 选择认养档位</h3>
+            <div className="tier-grid">
+              {tiers.map((tier) => (
+                <div
+                  key={tier.id}
+                  className={`tier-card ${selectedTier?.id === tier.id ? 'selected' : ''}`}
+                  onClick={() => !monkey.isAdopted && setSelectedTier(tier)}
+                  style={{ opacity: monkey.isAdopted ? 0.5 : 1 }}
+                >
+                  <div className="tier-name">{tier.name}</div>
+                  <div className="tier-price">
+                    ¥{Number(tier.price).toFixed(0)}
+                    <small> / {tier.durationMonths}个月</small>
+                  </div>
+                  <div className="tier-desc">{tier.description}</div>
+                  <div className="tier-benefits">{tier.benefits}</div>
+                </div>
+              ))}
+            </div>
+
+            {!monkey.isAdopted && (
+              <div
+                style={{
+                  marginTop: 24,
+                  display: 'flex',
+                  gap: 16,
+                  justifyContent: 'center'
+                }}
+              >
+                <button className="btn btn-outline btn-large" onClick={handleAddToCart}>
+                  🛒 加入认养篮
+                </button>
+                <button className="btn btn-primary btn-large" onClick={handleBuyNow}>
+                  ❤ 立即认养
+                </button>
+              </div>
+            )}
+
+            {monkey.isAdopted && (
+              <div
+                style={{
+                  marginTop: 24,
+                  textAlign: 'center',
+                  padding: 24,
+                  background: '#fff5f5',
+                  borderRadius: 12,
+                  color: '#ee5a6f'
+                }}
+              >
+                这只金丝猴已经被认养了，请选择其他可爱的小伙伴吧～
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {activeTab === 'diary' && (
+        <div className="detail-section">
+          <h3 className="detail-section-title">
+            📝 {monkey.name}的成长足迹
+          </h3>
+          {diaryLoading ? (
+            <div className="loading">
+              <div className="spinner" style={{ width: 30, height: 30 }}></div>
+              <p>加载中...</p>
+            </div>
+          ) : (
+            <GrowthTimeline
+              monkeyId={monkey.id}
+              monkeyName={monkey.name}
+              diaries={diaryData?.diaries || []}
+              isFullAccess={diaryData?.isFullAccess || false}
+              total={diaryData?.total || 0}
+              onLogin={openLogin}
+            />
+          )}
+        </div>
+      )}
     </div>
   )
 }

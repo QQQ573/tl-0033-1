@@ -10,4 +10,5 @@ import java.util.Optional;
 public interface AdoptionOrderRepository extends JpaRepository<AdoptionOrder, Long> {
     Optional<AdoptionOrder> findByOrderNo(String orderNo);
     Optional<AdoptionOrder> findByMonkeyIdAndStatusIn(Long monkeyId, java.util.List<String> statuses);
+    boolean existsByAdopterEmailAndMonkeyIdAndStatus(String adopterEmail, Long monkeyId, String status);
 }

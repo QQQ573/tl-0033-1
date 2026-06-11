@@ -44,4 +44,15 @@ export const certificateApi = {
   view: (certNo) => `/api/certificates/${certNo}/view`
 }
 
+export const authApi = {
+  login: (data) => api.post('/auth/login', data),
+  me: () => api.get('/auth/me'),
+  logout: () => api.post('/auth/logout')
+}
+
+export const diaryApi = {
+  getByMonkeyId: (monkeyId) => api.get(`/monkeys/${monkeyId}/diaries`),
+  getLatest: (limit = 5) => api.get(`/diaries/latest?limit=${limit}`)
+}
+
 export default api

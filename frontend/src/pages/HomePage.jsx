@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { monkeyApi } from '../api/index.js'
+import LatestNews from '../components/LatestNews.jsx'
 
 export default function HomePage() {
   const [monkeys, setMonkeys] = useState([])
@@ -42,6 +43,8 @@ export default function HomePage() {
           每一份爱心，都能为它们的生存带来希望。
         </p>
       </div>
+
+      <LatestNews />
 
       <h2 className="section-title">选择一只金丝猴</h2>
 
