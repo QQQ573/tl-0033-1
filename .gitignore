@@ -47,3 +47,8 @@ certificates/
 
 # Database
 mysql_data/
+
+# Test artifacts
+cert_test.pdf
+*.pdf
+!docs/**/*.pdf

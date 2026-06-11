@@ -2,8 +2,10 @@ FROM maven:3.9-eclipse-temurin-17 AS builder
 
 WORKDIR /app
 
+COPY settings.xml /root/.m2/settings.xml
+
 COPY pom.xml .
-RUN mvn dependency:go-offline -B
+RUN mvn dependency:resolve dependency:resolve-plugins -B || true
 
 COPY src ./src
 RUN mvn clean package -DskipTests -B
@@ -11,6 +13,10 @@ RUN mvn clean package -DskipTests -B
 FROM eclipse-temurin:17-jre-jammy
 
 WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /app/certificates
 

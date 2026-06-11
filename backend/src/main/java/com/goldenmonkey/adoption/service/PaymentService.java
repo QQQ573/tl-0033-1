@@ -6,6 +6,7 @@ import com.goldenmonkey.adoption.entity.Payment;
 import com.goldenmonkey.adoption.repository.AdoptionOrderRepository;
 import com.goldenmonkey.adoption.repository.PaymentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,7 @@ public class PaymentService {
     private AdoptionOrderRepository orderRepository;
 
     @Autowired
+    @Lazy
     private OrderService orderService;
 
     @Transactional

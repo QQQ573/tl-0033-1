@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/tiers")
+@RequestMapping("/api/tiers")
 public class TierController {
 
     @Autowired
